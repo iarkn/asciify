@@ -1,4 +1,3 @@
-CC := gcc
 CFLAGS := -Wall -Wextra -Wno-unused-but-set-variable -Wno-sign-compare \
 		  -Ilib/
 LDLIBS := -lm
