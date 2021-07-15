@@ -1,87 +1,128 @@
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
+#include <string.h>
+#include <errno.h>
 
-#include <png.h>
+#include <getopt.h>
 
-void asciify(char *path, char *chars);
-static void _file_error(FILE *file, const char *format, ...);
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+#define STB_IMAGE_RESIZE_IMPLEMENTATION
+#include "stb_image_resize.h"
 
-char *chars = " .,:;-_=+*#%0@";
+static void print_help(const char *file);
+static void debug(const char *format, ...);
+
+bool verbose = false;
+const struct option options[] = {
+    { "help",    no_argument,       0,  0  },
+    { "verbose", no_argument,       0, 'v' },
+    { "chars",   required_argument, 0, 'c' },
+    { "scale",   required_argument, 0, 's' },
+    { 0, 0, 0, 0 }
+};
 
 int main(int argc, char *argv[]) {
-    if (argc < 2) {
-        fprintf(stderr, "%s", "No input file is provided.\n");
-        exit(1);
+    char *chars = " _.,-~:oO0@#";
+    float scl = 0;
+
+    char *bin = argv[0];
+    int opt;
+
+    while ((opt = getopt_long_only(argc, argv, "vc:s:", options, NULL)) != -1) {
+        switch (opt) {
+            case 0:
+                print_help(bin);
+                return 0;
+                break;
+            case 'v':
+                verbose = true;
+                break;
+            case 'c':
+                chars = optarg;
+                break;
+            case 's':
+                if ((scl = atof(optarg)) <= 0) {
+                    fprintf(stderr, "%s: scale cannot be or less than zero\n", bin);
+                    return 1;
+                }
+                break;
+            default:
+                return 1;
+        }
     }
 
-    for (int i = 1; i < argc; i++) {
-        asciify(argv[i], chars);
-        if (i < argc - 1) printf("\n\n");
+    if (optind == argc) {
+        fprintf(stderr, "%s: input file is not specified\n", bin);
+        return 1;
     }
 
-    exit(0);
-}
+    char *file = argv[optind];
+    int w, h, c;
 
-void asciify(char *path, char *chars) {
-    FILE *file = fopen(path, "rb");
-    if (file == NULL) {
-        _file_error(NULL, "Cannot open '%s'.\n", path);
+    debug("- Loading specified file '%s'\n", file);
+
+    unsigned char *img = stbi_load(file, &w, &h, &c, 1);
+    if (img == NULL) {
+        fprintf(stderr, "%s: failed to load '%s': %s\n", bin, file, strerror(errno));
+        return 1;
     }
 
-    unsigned char header[8];
+    debug("- Loaded image '%s'\n  Size: %d x %d, Channels: %d\n", file, w, h, c);
 
-    // check PNG signature on the first 8 bytes
-    fread(header, 1, 8, file);
-    if (png_sig_cmp(header, 0, 8)) {
-        _file_error(file, "'%s' must be a valid PNG file.\n", path);
+    unsigned char *imgs;
+    int ws, hs;
+
+    if (scl > 0) {
+        debug("- Scaling image size by %f\n", scl);
+        ws = w * scl;
+        hs = h * scl;
+
+        imgs = malloc(ws * hs * 2);
+        stbir_resize_uint8(img, w, h, 0, imgs, ws, hs, 0, 1);
+    } else {
+        debug("- Scale is not specified, using default image size\n");
+        ws = w;
+        hs = h;
+        imgs = img;
     }
 
-    png_structp png = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
-    if (!png) {
-        _file_error(file, "Failed to create read struct for '%s'.\n", path);
-    }
+    debug("- Result image size: %d x %d\n", ws, hs);
+    debug("- Converting image to ASCII characters\n");
 
-    png_infop png_info = png_create_info_struct(png);
-    if (!png_info) {
-        png_destroy_read_struct(&png, NULL, NULL);
-        _file_error(file, "Failed to create info struct for '%s'.\n", path);
-    }
+    size_t len = strlen(chars);
 
-    png_init_io(png, file);
-    png_set_sig_bytes(png, 8);
-    png_read_png(png, png_info, PNG_TRANSFORM_IDENTITY, NULL);
+    for (int y = 0; y < hs; y++) {
+        for (int x = 0; x < ws; x++) {
+            int ind = round((float) imgs[x + ws * y] / 255.0f * len);
 
-    png_uint_32 width = png_get_image_width(png, png_info);
-    png_uint_32 height = png_get_image_height(png, png_info);
-
-    png_bytepp rows = png_get_rows(png, png_info);
-    size_t length = strlen(chars);
-
-    printf("%d %d\n", width, height);
-
-    // TODO should have grayscaled it first before doing anything
-    for (png_uint_32 i = 0; i < height; i++) {
-        png_bytep row = rows[i];
-
-        for (size_t j = 0; j < width * 3; j += 4) {
-            // 10/10
-            float avg = (row[j] + row[j + 1] + row[j + 2]) / 3;
-            size_t index = length - round(avg / 255 * length);
-
-            printf("%c%c%c", chars[index], chars[index], chars[index]);
+            printf("%c", chars[ind]);
         }
 
         printf("\n");
     }
 
-    fclose(file);
-    png_destroy_read_struct(&png, &png_info, NULL);
+    debug("- Finished converting image to ASCII characters\n");
+    debug("- Freeing image memory\n");
+
+    if (imgs != img) stbi_image_free(imgs);
+    stbi_image_free(img);
+    
+    return 0;
 }
 
-static void _file_error(FILE *file, const char *format, ...) {
-    if (file != NULL) fclose(file);
-    fprintf(stderr, format);
+static void print_help(const char *file) {
+    printf(
+        "Usage: %s [options ...] file\n"
+        "      --help            show this information\n"
+        "  -v, --verbose         be verbose\n"
+        "  -c, --chars <string>  set output characters from dark to light\n"
+        "  -s, --scale <float>   scales up/down the image and text output\n",
+        file
+    );
+}
 
-    exit(1);
+static void debug(const char *format, ...) {
+    if (verbose) printf(format);
 }
