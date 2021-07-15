@@ -9,7 +9,7 @@ Usage: bin/asciify [options ...] file
       --help            show this information
   -v, --verbose         be verbose
   -c, --chars <string>  set output characters from dark to light
-  -s, --scale <float>   scales up/down the image and text output
+  -s, --scale <float>   set scaling of the image and text output
 ```
 
 ## Building

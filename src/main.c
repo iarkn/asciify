@@ -118,7 +118,7 @@ static void print_help(const char *file) {
         "      --help            show this information\n"
         "  -v, --verbose         be verbose\n"
         "  -c, --chars <string>  set output characters from dark to light\n"
-        "  -s, --scale <float>   scales up/down the image and text output\n",
+        "  -s, --scale <float>   set scaling of the image and text output\n",
         file
     );
 }
