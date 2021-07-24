@@ -12,6 +12,10 @@ Usage: bin/asciify [options ...] file
   -s, --scale <float>   set scaling of the image and text output
 ```
 
+The result of converting [this](assets/example.png) image into an ASCII-art.
+
+[example-output](assets/example-output.jpg)
+
 ## Building
 
 You would need a compiler for C (like `clang` or `gcc`) and `make`. To compile, just type `make` in the root directory and the build output should be in the `bin/` directory.

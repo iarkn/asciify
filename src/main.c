@@ -79,7 +79,7 @@ int main(int argc, char *argv[]) {
         ws = w * scl;
         hs = h * scl;
 
-        imgs = malloc(ws * hs * 2);
+        imgs = malloc(ws * hs);
         stbir_resize_uint8(img, w, h, 0, imgs, ws, hs, 0, 1);
     } else {
         debug("- Scale is not specified, using default image size\n");
@@ -92,15 +92,14 @@ int main(int argc, char *argv[]) {
     debug("- Converting image to ASCII characters\n");
 
     size_t len = strlen(chars);
+    size_t img_size = ws * hs;
 
-    for (int y = 0; y < hs; y++) {
-        for (int x = 0; x < ws; x++) {
-            int ind = round((float) imgs[x + ws * y] / 255.0f * len);
+    for (int i = 0; i < img_size; i++) {
+        int n = round((float) imgs[i] / 255.0f * (len - 1));
 
-            printf("%c", chars[ind]);
-        }
+        printf("%c", chars[n]);
 
-        printf("\n");
+        if (i % ws == ws - 1) printf("\n");
     }
 
     debug("- Finished converting image to ASCII characters\n");
