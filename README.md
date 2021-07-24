@@ -12,9 +12,11 @@ Usage: bin/asciify [options ...] file
   -s, --scale <float>   set scaling of the image and text output
 ```
 
-The result of converting [this](assets/example.png) image into an ASCII-art.
+## Example
 
-[example-output](assets/example-output.jpg)
+Below is the result of converting [this](assets/example.png) image into an ASCII-art.
+
+![example-output](assets/example-output.jpg)
 
 ## Building
 
