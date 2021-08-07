@@ -1,6 +1,3 @@
-#include "stb_image.h"
-#include "stb_image_resize.h"
-
 #include <errno.h>
 #include <math.h>
 #include <stdbool.h>
@@ -10,42 +7,44 @@
 
 #include <getopt.h>
 
-static void print_help(const char *file);
-static void debug(const char *format, ...);
+#include "stb_image.h"
+#include "stb_image_resize.h"
 
-bool verbose = false;
+static void print_help(const char *file);
+
 const struct option options[] = {
-    { "help",    no_argument,       0,  0  },
-    { "verbose", no_argument,       0, 'v' },
-    { "chars",   required_argument, 0, 'c' },
-    { "scale",   required_argument, 0, 's' },
+    { "help",     no_argument,       0, 'h' },
+    { "chars",    required_argument, 0, 'c' },
+    { "scale",    required_argument, 0, 's' },
+    { "colorize", no_argument,       0, 'C' },
     { 0, 0, 0, 0 }
 };
 
 int main(int argc, char *argv[]) {
     char *chars = " _.,-~:oO0@#";
     float scl = 0;
+    bool colorize = false;
 
     char *bin = argv[0];
     int opt;
 
-    while ((opt = getopt_long_only(argc, argv, "vc:s:", options, NULL)) != -1) {
+    while ((opt = getopt_long_only(argc, argv, "hc:s:C", options, NULL)) != -1) {
         switch (opt) {
-            case 0:
+            case 'h':
                 print_help(bin);
                 return 0;
-                break;
-            case 'v':
-                verbose = true;
                 break;
             case 'c':
                 chars = optarg;
                 break;
             case 's':
                 if ((scl = atof(optarg)) <= 0) {
-                    fprintf(stderr, "%s: scale cannot be or less than zero\n", bin);
+                    fprintf(stderr, "%s: scale cannot be less than or equal to 0\n", bin);
                     return 1;
                 }
+                break;
+            case 'C':
+                colorize = true;
                 break;
             default:
                 return 1;
@@ -57,53 +56,56 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+    // Desired channels: 3 (RGB) if colorize is enabled, 1 (gray) otherwise
+    int dc = colorize ? 3 : 1;
     char *file = argv[optind];
     int w, h, c;
 
-    debug("- Loading specified file '%s'\n", file);
-
-    unsigned char *img = stbi_load(file, &w, &h, &c, 1);
+    // Load specified file
+    unsigned char *img = stbi_load(file, &w, &h, &c, dc);
     if (img == NULL) {
         fprintf(stderr, "%s: failed to load '%s': %s\n", bin, file, strerror(errno));
         return 1;
     }
 
-    debug("- Loaded image '%s'\n  Size: %d x %d, Channels: %d\n", file, w, h, c);
-
+    // A copy of the initial image that will be modified
     unsigned char *imgs;
     int ws, hs;
 
+    // Scale image by the specified amount or use the initial image size if
+    // not specified
     if (scl > 0) {
-        debug("- Scaling image size by %f\n", scl);
         ws = w * scl;
         hs = h * scl;
 
-        imgs = malloc(ws * hs);
-        stbir_resize_uint8(img, w, h, 0, imgs, ws, hs, 0, 1);
+        imgs = malloc(ws * hs * dc);
+        stbir_resize_uint8(img, w, h, 0, imgs, ws, hs, 0, dc);
     } else {
-        debug("- Scale is not specified, using default image size\n");
         ws = w;
         hs = h;
         imgs = img;
     }
 
-    debug("- Result image size: %d x %d\n", ws, hs);
-    debug("- Converting image to ASCII characters\n");
-
     size_t len = strlen(chars);
-    size_t img_size = ws * hs;
+    size_t imgs_size = ws * hs * dc;
 
-    for (int i = 0; i < img_size; i++) {
-        int n = round((float) imgs[i] / 255.0f * (len - 1));
+    // Convert image to the specified characters
+    for (int i = 0, j = 0; i < imgs_size; i += dc, j++) {
+        if (colorize) {
+            float avg = (imgs[i] + imgs[i + 1] + imgs[i + 2]) / 3.0f;
+            int n = round(avg / 255.0f * (len - 1));
 
-        printf("%c", chars[n]);
+            printf("\033[38;2;%d;%d;%dm%c", imgs[i], imgs[i + 1], imgs[i + 2], chars[n]);
+        } else {
+            int n = round((float) imgs[i] / 255.0f * (len - 1));
 
-        if (i % ws == ws - 1) printf("\n");
+            printf("%c", chars[n]);
+        }
+
+        if (j % ws == ws - 1) printf("\n");
     }
 
-    debug("- Finished converting image to ASCII characters\n");
-    debug("- Freeing image memory\n");
-
+    // Free image memory
     if (imgs != img) stbi_image_free(imgs);
     stbi_image_free(img);
     
@@ -113,14 +115,10 @@ int main(int argc, char *argv[]) {
 static void print_help(const char *file) {
     printf(
         "Usage: %s [options ...] file\n"
-        "      --help            show this information\n"
-        "  -v, --verbose         be verbose\n"
+        "  -h, --help            show this information\n"
         "  -c, --chars <string>  set output characters from dark to light\n"
-        "  -s, --scale <float>   set scaling of the image and text output\n",
+        "  -s, --scale <float>   set scaling of the image and text output\n"
+        "  -C, --colorize        colorize text output, uses true color (24-bit color)\n",
         file
     );
-}
-
-static void debug(const char *format, ...) {
-    if (verbose) printf(format);
 }

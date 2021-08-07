@@ -1,6 +1,6 @@
 CC := gcc
 CFLAGS := -O3 -Wall -Wextra -Wpedantic \
-	-Wno-unused-but-set-variable -Wno-sign-compare \
+	-Wno-unused-variable -Wno-sign-compare \
 	-Iinclude
 LDLIBS := -lm
 
