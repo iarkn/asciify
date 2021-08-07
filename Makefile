@@ -1,22 +1,24 @@
 CC := gcc
-CFLAGS := -Wall -Wextra -Wno-unused-but-set-variable -Wno-sign-compare \
-		  -Ilib/
+CFLAGS := -O3 -Wall -Wextra -Wpedantic \
+	-Wno-unused-but-set-variable -Wno-sign-compare \
+	-Iinclude
 LDLIBS := -lm
 
-SRC := $(wildcard src/*.c)
-OBJ := $(patsubst %.c, %.o, $(SRC))
+SRC := $(shell find src -type f -name "*.c")
+OBJ := $(SRC:src/%.c=build/%.o)
 
-bin/asciify: $(OBJ) | bin
+all: build/asciify
+
+build:
+	mkdir build
+
+build/%.o: src/%.c | build
+	$(CC) $(CFLAGS) -c $< -o $@
+
+build/asciify: $(OBJ)
 	$(CC) $(CFLAGS) $^ $(LDLIBS) -o $@
 
-bin:
-	mkdir bin
-
-%.o: %.c
-	$(CC) $(CFLAGS) -c $< -o $@ 
-
 clean:
-	rm -rf bin
-	rm -f *.o
+	rm -rf build
 
-.PHONY:	clean
+.PHONY:	all clean

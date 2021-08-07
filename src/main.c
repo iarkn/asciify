@@ -1,15 +1,14 @@
+#include "stb_image.h"
+#include "stb_image_resize.h"
+
+#include <errno.h>
+#include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <errno.h>
 
 #include <getopt.h>
-
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
-#define STB_IMAGE_RESIZE_IMPLEMENTATION
-#include "stb_image_resize.h"
 
 static void print_help(const char *file);
 static void debug(const char *format, ...);
